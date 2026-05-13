@@ -3,6 +3,9 @@
     "prompt": "What is the sum of 2 and 3?"
   }, 
   {
+    "prompt": "What is the sum of 2 and 3 and mulitp their result by 10?"
+  }, 
+  {
     "prompt": "Greet shrek"
   },
   {

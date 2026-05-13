@@ -71,14 +71,17 @@ for p in prompts:
             if values and next_token == values[0]:
                 values.pop(0)
                 tokens_of_functions_used[name] = values
-            print(f"\ntokens_of_functions_used: {tokens_of_functions_used} \n")
         
         if len(tokens_of_functions_used) == 1:
             for func, values in tokens_of_functions_used.items():
                 f = list_of_functions[func]["parameters"].keys()
-                params = model.encode(f"{list(f)[0]}\": ")[0].tolist()
-                tokens.extend([next_token, *values, *parameters, *params])
-                print(model.decode([next_token, *values, *parameters, *params]),
+                if f:
+                    params = model.encode(f"{list(f)[0]}\": ")[0].tolist()
+                    tokens.extend([next_token, *values, *parameters, *params])
+                    print(model.decode([next_token, *values, *parameters, *params]))
+                else:
+                    tokens.extend([next_token, *values, *parameters])
+                    print(model.decode([next_token, *values, *parameters]),
                     end='', flush=True)
         else:
             tokens.append(next_token)

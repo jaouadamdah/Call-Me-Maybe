@@ -15,19 +15,9 @@
     }
   },
   {
-    "name": "fn_add_numberss",
-    "description": "Add two numbers together and return their sum.",
-    "parameters": {
-      "site": {
-        "type": "number"
-      },
-      "bbat": {
-        "type": "number"
-      },
-      "mate": {
-        "type": "number"
-      }
-    },
+    "name": "fn_add_numbers_plus",
+    "description": "Add two numbers together and multiple it's sum than return their result.",
+    "parameters": {},
     "returns": {
       "type": "number"
     }

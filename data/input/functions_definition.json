@@ -15,6 +15,24 @@
     }
   },
   {
+    "name": "fn_add_numberss",
+    "description": "Add two numbers together and return their sum.",
+    "parameters": {
+      "site": {
+        "type": "number"
+      },
+      "bbat": {
+        "type": "number"
+      },
+      "mate": {
+        "type": "number"
+      }
+    },
+    "returns": {
+      "type": "number"
+    }
+  },
+  {
     "name": "fn_greet",
     "description": "Generate a greeting message for a person by name.",
     "parameters": {

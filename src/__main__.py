@@ -18,11 +18,15 @@ def genearet_prompt(system: str, user: str, tools: str):
 
 
 tokens_of_functions = {}
-with open("/goinfre/jamdah/call_me_maybe/data/input/functions_definition.json") as fun, open("/goinfre/jamdah/call_me_maybe/data/input/function_calling_tests.json") as p:
+list_of_functions = {}
+# with open("/goinfre/jamdah/call_me_maybe/data/input/functions_definition.json", 'a+') as f:
+#     print(f())
+with open("/goinfre/alamliti/Call-Me-Maybe/data/input/functions_definition.json") as fun, open("/goinfre/alamliti/Call-Me-Maybe/data/input/function_calling_tests.json") as p:
     objs = json.load(fun)
     for obj in objs:
         tokens_of_functions[obj["name"]] = model.encode(obj["name"])[
             0].tolist()
+        list_of_functions[obj["name"]] = obj
     prompts = json.load(p)
     functions = "\n".join(json.dumps(line) for line in objs)
 
@@ -49,7 +53,7 @@ start = time.time()
 #         arr.extend(*tokens_of_functions_used.values())
 #         break
 # pprint(arr)
-
+# print(list(list_of_functions["fn_add_numbers"]["parameters"].keys())[0])
 # exit()
 for p in prompts:
     prompt = genearet_prompt(msg['system'], p, msg['tools'])
@@ -64,13 +68,17 @@ for p in prompts:
         next_token = np.array(model.get_logits_from_input_ids(tokens)).argmax()
         tokens_of_functions_used = {}
         for name, values in functions_to_use.items():
-            if next_token == values[0]:
+            if values and next_token == values[0]:
                 values.pop(0)
                 tokens_of_functions_used[name] = values
+            print(f"\ntokens_of_functions_used: {tokens_of_functions_used} \n")
+        
         if len(tokens_of_functions_used) == 1:
-            for values in tokens_of_functions_used.values():
-                tokens.extend([next_token, *values, *parameters])
-                print(model.decode([next_token, *values, *parameters]),
+            for func, values in tokens_of_functions_used.items():
+                f = list_of_functions[func]["parameters"].keys()
+                params = model.encode(f"{list(f)[0]}\": ")[0].tolist()
+                tokens.extend([next_token, *values, *parameters, *params])
+                print(model.decode([next_token, *values, *parameters, *params]),
                     end='', flush=True)
         else:
             tokens.append(next_token)
@@ -78,4 +86,4 @@ for p in prompts:
 
         max_tokens -= 1
 
-print('\ntotal:', (time.time() - start) // 60)
+print('\ntotal:', (time.time() - start) // 60, " minutes")

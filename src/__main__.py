@@ -40,7 +40,7 @@ msg = {
 }
 
 end_token = model.encode("<|im_end|>")
-parameters = model.encode('",\n\t"arguments": {\n\t\t"')[0].tolist()
+parameters = model.encode('", "arguments": {')[0].tolist()
 start = time.time()
 # arr = [1,2,3]
 # for token in model.encode('fn_substitute_string_wiith_regex')[0].tolist():
@@ -60,7 +60,7 @@ start = time.time()
 def get_next_token(list_tokens_of_func: list[int]):
     name = model.decode(list_tokens_of_func)
     for key in list_of_functions[name]["parameters"]:
-        app = model.encode(f"{key}\": ")[0].tolist()
+        app = model.encode(f"\"{key}\": ")[0].tolist()
         parameters.extend([*app])
         yield(key)
 # ss = get_next_token("fn_add_numbers")
@@ -74,40 +74,46 @@ for p in prompts:
     max_tokens = 1200
     next_token = None
 
-    print(f'{{\n\t"prompt": "{p["prompt"]}",\n\t"name": "', end="", flush=True)
+    print(f'{{"prompt": "{p["prompt"]}", "name": "', end="", flush=True)
     functions_to_use = copy.deepcopy(tokens_of_functions)
     list_token_of_func = []
     while max_tokens and next_token != end_token:
-        next_token = np.array(model.get_logits_from_input_ids(tokens)).argmax()
-        # tokens_of_functions_used = {}
-        if next_token == is_a_break:
-            break
-        else:
-            list_token_of_func.append(next_token)
-
-        # for name, values in functions_to_use.items():
-        #     if values and next_token == values[0]:
-        #         values.pop(0)
-        #         tokens_of_functions_used[name] = values
-
-        # if len(tokens_of_functions_used) == 1:
-        #     for func, values in tokens_of_functions_used.items():
-        #         f = list_of_functions[func]["parameters"].keys()
-        #         if f:
-        #             params = model.encode(f"{list(f)[0]}\": ")[0].tolist()
-        #             tokens.extend([next_token, *values, *parameters, *params])
-        #             print(model.decode([next_token, *values, *parameters, *params]))
-        #         else:
-        #             tokens.extend([next_token, *values, *parameters])
-        #             print(model.decode([next_token, *values, *parameters]),
-        #             end='', flush=True)
+        logits = model.get_logits_from_input_ids(tokens)
+        next_token = np.array(logits).argmax()
+        tokens_of_functions_used = {}
+        # if next_token == is_a_break:
+        #     break
         # else:
-        tokens.append(next_token)
-        # print(model.decode(next_token), end="", flush=True)
+        #     list_token_of_func.append(next_token)
+
+        for name, values in functions_to_use.items():
+            if values and next_token == values[0]:
+                values.pop(0)
+                tokens_of_functions_used[name] = values
+
+        if len(tokens_of_functions_used) == 1:
+            for func, values in tokens_of_functions_used.items():
+                f = list_of_functions[func]["parameters"].keys()
+                if f:
+                    params = model.encode(f"{list(f)[0]}\": ")[0].tolist()
+                    tokens.extend([next_token, *values, *parameters, *params])
+                    print(model.decode([next_token, *values, *parameters, *params]))
+                else:
+                    tokens.extend([next_token, *values, *parameters])
+                    print(model.decode([next_token, *values, *parameters]),
+                    end='', flush=True)
+        else:
+            tokens.append(next_token)
+        print(model.decode(next_token), end="", flush=True)
     ss = get_next_token(list_token_of_func)
     print(next(ss))
+    aa = model.encode("2,")[0].tolist()
+    parameters.extend([*aa])
+    print(next(ss))
+    aa = model.encode("5}}")[0].tolist()
+    parameters.extend([*aa])
     print(parameters)
-    # print(model.decode(parameters))
+    print(model.decode(parameters))
     break
         # max_tokens -= 1
 

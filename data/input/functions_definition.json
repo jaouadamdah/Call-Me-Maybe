@@ -15,14 +15,6 @@
     }
   },
   {
-    "name": "fn_add_numbers_plus",
-    "description": "Add two numbers together and multiple it's sum than return their result.",
-    "parameters": {},
-    "returns": {
-      "type": "number"
-    }
-  },
-  {
     "name": "fn_greet",
     "description": "Generate a greeting message for a person by name.",
     "parameters": {

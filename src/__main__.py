@@ -12,7 +12,7 @@ def genearet_prompt(system: str, user: str, tools: str):
     prompt += f"\n<tools>\n{tools}\n</tools>"
     prompt += '\n\nFor each function call, return a json object with user prompt, function name and arguments within <tool_call></tool_call> XML tags:\n<tool_call>\n{"prompt": <user-prompt>, "name": <function-name>, "arguments": <args-json-object>}\n</tool_call><|im_end|>\n'
     prompt += f"<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
-    prompt += f'{{\n\t"prompt": "{user}",\n\t"name": "'
+    prompt += f'{{"prompt": "{user}", "name": "'
     return prompt
 
 def build_clean_vocab(model):
@@ -93,7 +93,6 @@ schema_parameters = {}
 target_functions = list(list_of_functions.keys())
 clean_vocab = build_clean_vocab(model)
 print("--- Start Generating Function Name ---")
-print(f'{{"prompt": "{msg["user"]}", "name": "', end="", flush=True)
 while True:
     logits = model.get_logits_from_input_ids(tokens)
     
@@ -114,11 +113,10 @@ while True:
     tokens.append(next_token)
     decoded_token = clean_vocab[next_token]
     current_generated_string += decoded_token
-    print(decoded_token, end="", flush=True)
+
     if state == "FUNCTION_NAME":    
         if current_generated_string in target_functions:
                 tokens.extend(model.encode('", "arguments": {')[0].tolist())
-                print('", "arguments": {', end="", flush=True)
                 schema_parameters = list_of_functions[current_generated_string]["parameters"]
                 if not schema_parameters:
                     tokens.extend(model.encode('}')[0].tolist())
@@ -139,10 +137,8 @@ while True:
             state = "PARAM_KEY"
             
         elif "}" in decoded_token:
-            print("}", end="", flush=True)
             state = "END" 
     elif state == "END":
         break
-
-   
+print(model.decode(tokens), end="", flush=True)  
 print("\ntotal:", (time.time() - start) / 60, " minutes")

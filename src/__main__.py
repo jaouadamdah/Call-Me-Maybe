@@ -81,7 +81,7 @@ msg = {
 start = time.time()
 
 def generate_structured_call(prompt, schema_definitions, model):
-    prompt = genearet_prompt(msg["system"], msg["user"], msg["tools"])
+    prompt = genearet_prompt(msg["system"], prompt, schema_definitions)
     tokens = model.encode(prompt)[0].tolist()
 
     state = "FUNCTION_NAME"
@@ -109,7 +109,6 @@ def generate_structured_call(prompt, schema_definitions, model):
         next_token = int(np.argmax(masked_logits))
         tokens.append(next_token)
         decoded_token = clean_vocab[next_token]
-        pprint(decoded_token)
         current_generated_string += decoded_token
 
         if state == "FUNCTION_NAME":    
@@ -138,6 +137,7 @@ def generate_structured_call(prompt, schema_definitions, model):
                 state = "END" 
         elif state == "END":
             break
-
+    return tokens
+tokens = generate_structured_call("What is the sum of 222, 33.3?", functions, model)
 print(model.decode(tokens), end="", flush=True)  
 print("\ntotal:", (time.time() - start) / 60, " minutes")

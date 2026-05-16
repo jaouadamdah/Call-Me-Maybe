@@ -3,7 +3,6 @@ from llm_sdk import Small_LLM_Model
 import numpy as np
 import json
 from pprint import pprint
-import copy
 
 model = Small_LLM_Model()
 
@@ -16,29 +15,50 @@ def genearet_prompt(system: str, user: str, tools: str):
     prompt += f'{{\n\t"prompt": "{user}",\n\t"name": "'
     return prompt
 
+def build_clean_vocab(model):
+    vocab_path = model.get_path_to_vocab_file()
+    with open(vocab_path) as f:
+        vocabulary = json.load(f)
+    clean_vocab = {}
+    for _, token_id in vocabulary.items():
+        clean_text = model.decode([token_id])
+        clean_vocab[token_id] = clean_text
+    return clean_vocab
 
-tokens_of_functions = {}
-list_of_functions = {}
-# with open("/goinfre/jamdah/call_me_maybe/data/input/functions_definition.json", 'a+') as f:
-#     print(f())
-
-vocab_path = model.get_path_to_vocab_file()
-with open(vocab_path, 'r') as f:
-    vocabulary = json.load(f)
-
-print(vocabulary)
-exit()
-def apply_constrained_mask(logits, allowed_token_ids):
+def apply_logits_mask(logits, allowed_ids):
     masked_logits = np.full_like(logits, -np.inf)
-    for token_id in allowed_token_ids:
+    for token_id in allowed_ids:
         masked_logits[token_id] = logits[token_id]
     return masked_logits
 
-def get_allowed_tokens_for_string(target_string, current_generated_string, vocab):
-    allowed_ids = []
-    
+def get_allowed_ids_for_prefix(target_list: list[str], current_string: str, clean_vocab: dict):
+    allowed_ids: list = []
+
+    for token_id, token_text in clean_vocab.items():
+        if not token_text:
+            continue
+        text_target: str = current_string + token_text
+        for target in target_list:
+            if target.startswith(text_target) or text_target.startswith(target):
+                allowed_ids.append(token_id)
+                break
     return allowed_ids
 
+def get_allowed_ids_for_numbers(clean_vocab: dict[int, str]):
+    allowed_ids: list = []
+
+    allowed_chars = set("0123456789.-,} ")
+    for token_id, token_text in clean_vocab.items():
+        if not token_text:
+            continue
+        if all(char in allowed_chars for char in token_text):
+            allowed_ids.append(token_id)
+    return allowed_ids
+
+# def generate_structured_call(prompt, schema_definitions, model):
+
+tokens_of_functions = {}
+list_of_functions = {}
 
 with (
     open("/goinfre/alamliti/Call-Me-Maybe/data/input/functions_definition.json") as fun,
@@ -61,85 +81,68 @@ msg = {
 end_token = model.encode("<|im_end|>")
 parameters = model.encode('", "arguments": {')[0].tolist()
 start = time.time()
-# arr = [1,2,3]
-# for token in model.encode('fn_substitute_string_wiith_regex')[0].tolist():
-#     tokens_of_functions_used = {}
-
-#     for name, values in tokens_of_functions.items():
-#         if token == values[0]:
-#             values.pop(0)
-#             tokens_of_functions_used[name] = values
-#     pprint(tokens_of_functions_used)
-#     if len(tokens_of_functions_used) == 1:
-#         arr.extend(*tokens_of_functions_used.values())
-#         break
-# pprint(arr)
-# print(list(list_of_functions["fn_add_numbers"]["parameters"].keys())[0])
-
-def get_next_token(list_tokens_of_func: list[int]):
-    name = model.decode(list_tokens_of_func)
-    for key, value in list_of_functions[name]["parameters"].items():
-        app = model.encode(f"\"{key}\": ")[0].tolist()
-        parameters.extend([*app])
-        yield(value["type"])
-# ss = get_next_token("fn_add_numbers")
-# print(next(ss))
-# print(next(ss))
 
 
+prompt = genearet_prompt(msg["system"], msg["user"], msg["tools"])
+tokens = model.encode(prompt)[0].tolist()
 
-is_a_break = model.encode('",\n')[0].tolist()
-is_a_break_2 = model.encode('"')[0].tolist()
-# exit()
-for p in prompts:
-    prompt = genearet_prompt(msg["system"], p, msg["tools"])
-    tokens = model.encode(prompt)[0].tolist()
-    max_tokens = 1200
-    next_token = None
+state = "FUNCTION_NAME"
+current_generated_string = ""
+chosen_function = None
+schema_parameters = {}
+target_functions = list(list_of_functions.keys())
+clean_vocab = build_clean_vocab(model)
+print("--- Start Generating Function Name ---")
+print(f'{{"prompt": "{msg["user"]}", "name": "', end="", flush=True)
+while True:
+    logits = model.get_logits_from_input_ids(tokens)
+    
+    if state == "FUNCTION_NAME":
+        allowed_ids = get_allowed_ids_for_prefix(target_functions, current_generated_string, clean_vocab)
 
-    print(f'{{"prompt": "{p["prompt"]}", "name": "', end="", flush=True)
-    functions_to_use = copy.deepcopy(tokens_of_functions)
-    list_token_of_func = []
-    while max_tokens and next_token != end_token:
-        logits = model.get_logits_from_input_ids(tokens)
-        next_token = np.array(logits).argmax()
-        tokens_of_functions_used = {}
-        print("\n--------", model.decode(next_token), is_a_break_2, next_token,"--------\n")
+    elif state == "PARAM_KEY":
+        remaining_keys = [f'"{k}": ' for k in schema_parameters.keys()]
+        allowed_ids = get_allowed_ids_for_prefix(remaining_keys, current_generated_string, clean_vocab)
 
-        if next_token == is_a_break:
-            break
-        else:
-            list_token_of_func.append(next_token)
+    elif state == "PARAM_VALUE":
+        current_type = schema_parameters[current_key]["type"]
+        if current_type == "number":
+            allowed_ids = get_allowed_ids_for_numbers(clean_vocab)
 
-        # for name, values in functions_to_use.items():
-        #     if values and next_token == values[0]:
-        #         values.pop(0)
-        #         tokens_of_functions_used[name] = values
+    masked_logits = apply_logits_mask(logits, allowed_ids)
+    next_token = int(np.argmax(masked_logits))
+    tokens.append(next_token)
+    decoded_token = clean_vocab[next_token]
+    current_generated_string += decoded_token
+    print(decoded_token, end="", flush=True)
+    if state == "FUNCTION_NAME":    
+        if current_generated_string in target_functions:
+                tokens.extend(model.encode('", "arguments": {')[0].tolist())
+                print('", "arguments": {', end="", flush=True)
+                schema_parameters = list_of_functions[current_generated_string]["parameters"]
+                if not schema_parameters:
+                    tokens.extend(model.encode('}')[0].tolist())
+                    state = "END"
+                else:
+                    state = "PARAM_KEY"
+                    current_generated_string = ""
+    elif state == "PARAM_KEY":
+        if current_generated_string in [f'"{k}": ' for k in schema_parameters.keys()]:
+            current_key = current_generated_string.split('"')[1] 
+            current_generated_string = ""
+            state = "PARAM_VALUE"
 
-        # if len(tokens_of_functions_used) == 1:
-        #     for func, values in tokens_of_functions_used.items():
-        #         f = list_of_functions[func]["parameters"].keys()
-        #         if f:
-        #             params = model.encode(f"{list(f)[0]}\": ")[0].tolist()
-        #             tokens.extend([next_token, *values, *parameters, *params])
-        #             print(model.decode([next_token, *values, *parameters, *params]))
-        #         else:
-        #             tokens.extend([next_token, *values, *parameters])
-        #             print(model.decode([next_token, *values, *parameters]),
-        #             end='', flush=True)
-        # else:
-        tokens.append(next_token)
-        print(model.decode(next_token), end="", flush=True)
-    ss = get_next_token(list_token_of_func)
-    print(next(ss))
-    aa = model.encode("2,")[0].tolist()
-    parameters.extend([*aa])
-    print(next(ss))
-    aa = model.encode("5}}")[0].tolist()
-    parameters.extend([*aa])
-    # print(parameters)
-    print(model.decode(parameters))
-    break
-        # max_tokens -= 1
+    elif state == "PARAM_VALUE":
+        if "," in decoded_token:
+            del schema_parameters[current_key]
+            current_generated_string = ""
+            state = "PARAM_KEY"
+            
+        elif "}" in decoded_token:
+            print("}", end="", flush=True)
+            state = "END" 
+    elif state == "END":
+        break
 
+   
 print("\ntotal:", (time.time() - start) / 60, " minutes")

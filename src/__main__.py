@@ -100,8 +100,8 @@ while True:
         allowed_ids = get_allowed_ids_for_prefix(target_functions, current_generated_string, clean_vocab)
 
     elif state == "PARAM_KEY":
-        remaining_keys = [f'"{k}": ' for k in schema_parameters.keys()]
-        allowed_ids = get_allowed_ids_for_prefix(remaining_keys, current_generated_string, clean_vocab)
+        keys = [f'"{k}": ' for k in schema_parameters.keys()]
+        allowed_ids = get_allowed_ids_for_prefix(keys, current_generated_string, clean_vocab)
 
     elif state == "PARAM_VALUE":
         current_type = schema_parameters[current_key]["type"]

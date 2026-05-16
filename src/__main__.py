@@ -55,7 +55,7 @@ def get_allowed_ids_for_numbers(clean_vocab: dict[int, str]):
             allowed_ids.append(token_id)
     return allowed_ids
 
-# def generate_structured_call(prompt, schema_definitions, model):
+
 
 tokens_of_functions = {}
 list_of_functions = {}
@@ -78,67 +78,66 @@ msg = {
     "tools": functions,
 }
 
-end_token = model.encode("<|im_end|>")
-parameters = model.encode('", "arguments": {')[0].tolist()
 start = time.time()
 
+def generate_structured_call(prompt, schema_definitions, model):
+    prompt = genearet_prompt(msg["system"], msg["user"], msg["tools"])
+    tokens = model.encode(prompt)[0].tolist()
 
-prompt = genearet_prompt(msg["system"], msg["user"], msg["tools"])
-tokens = model.encode(prompt)[0].tolist()
+    state = "FUNCTION_NAME"
+    current_generated_string = ""
+    schema_parameters = {}
+    target_functions = list(list_of_functions.keys())
+    clean_vocab = build_clean_vocab(model)
 
-state = "FUNCTION_NAME"
-current_generated_string = ""
-chosen_function = None
-schema_parameters = {}
-target_functions = list(list_of_functions.keys())
-clean_vocab = build_clean_vocab(model)
-print("--- Start Generating Function Name ---")
-while True:
-    logits = model.get_logits_from_input_ids(tokens)
-    
-    if state == "FUNCTION_NAME":
-        allowed_ids = get_allowed_ids_for_prefix(target_functions, current_generated_string, clean_vocab)
+    while True:
+        logits = model.get_logits_from_input_ids(tokens)
+        
+        if state == "FUNCTION_NAME":
+            allowed_ids = get_allowed_ids_for_prefix(target_functions, current_generated_string, clean_vocab)
 
-    elif state == "PARAM_KEY":
-        keys = [f'"{k}": ' for k in schema_parameters.keys()]
-        allowed_ids = get_allowed_ids_for_prefix(keys, current_generated_string, clean_vocab)
+        elif state == "PARAM_KEY":
+            keys = [f'"{k}": ' for k in schema_parameters.keys()]
+            allowed_ids = get_allowed_ids_for_prefix(keys, current_generated_string, clean_vocab)
 
-    elif state == "PARAM_VALUE":
-        current_type = schema_parameters[current_key]["type"]
-        if current_type == "number":
-            allowed_ids = get_allowed_ids_for_numbers(clean_vocab)
+        elif state == "PARAM_VALUE":
+            current_type = schema_parameters[current_key]["type"]
+            if current_type == "number":
+                allowed_ids = get_allowed_ids_for_numbers(clean_vocab)
 
-    masked_logits = apply_logits_mask(logits, allowed_ids)
-    next_token = int(np.argmax(masked_logits))
-    tokens.append(next_token)
-    decoded_token = clean_vocab[next_token]
-    current_generated_string += decoded_token
+        masked_logits = apply_logits_mask(logits, allowed_ids)
+        next_token = int(np.argmax(masked_logits))
+        tokens.append(next_token)
+        decoded_token = clean_vocab[next_token]
+        pprint(decoded_token)
+        current_generated_string += decoded_token
 
-    if state == "FUNCTION_NAME":    
-        if current_generated_string in target_functions:
-                tokens.extend(model.encode('", "arguments": {')[0].tolist())
-                schema_parameters = list_of_functions[current_generated_string]["parameters"]
-                if not schema_parameters:
-                    tokens.extend(model.encode('}')[0].tolist())
-                    state = "END"
-                else:
-                    state = "PARAM_KEY"
-                    current_generated_string = ""
-    elif state == "PARAM_KEY":
-        if current_generated_string in [f'"{k}": ' for k in schema_parameters.keys()]:
-            current_key = current_generated_string.split('"')[1] 
-            current_generated_string = ""
-            state = "PARAM_VALUE"
+        if state == "FUNCTION_NAME":    
+            if current_generated_string in target_functions:
+                    tokens.extend(model.encode('", "arguments": {')[0].tolist())
+                    schema_parameters = list_of_functions[current_generated_string]["parameters"]
+                    if not schema_parameters:
+                        tokens.extend(model.encode('}')[0].tolist())
+                        state = "END"
+                    else:
+                        state = "PARAM_KEY"
+                        current_generated_string = ""
+        elif state == "PARAM_KEY":
+            if current_generated_string in [f'"{k}": ' for k in schema_parameters.keys()]:
+                current_key = current_generated_string.split('"')[1] 
+                current_generated_string = ""
+                state = "PARAM_VALUE"
 
-    elif state == "PARAM_VALUE":
-        if "," in decoded_token:
-            del schema_parameters[current_key]
-            current_generated_string = ""
-            state = "PARAM_KEY"
-            
-        elif "}" in decoded_token:
-            state = "END" 
-    elif state == "END":
-        break
+        elif state == "PARAM_VALUE":
+            if "," in decoded_token:
+                del schema_parameters[current_key]
+                current_generated_string = ""
+                state = "PARAM_KEY"
+                
+            elif "}" in decoded_token:
+                state = "END" 
+        elif state == "END":
+            break
+
 print(model.decode(tokens), end="", flush=True)  
 print("\ntotal:", (time.time() - start) / 60, " minutes")

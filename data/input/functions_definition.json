@@ -1,7 +1,7 @@
 [
   {
     "name": "fn_add_numbers",
-    "description": "Add three numbers together and return their sum.",
+    "description": "Add three numbers required together and return their sum.",
     "parameters": {
       "a": {
         "type": "number"

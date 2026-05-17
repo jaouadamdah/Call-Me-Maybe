@@ -55,8 +55,6 @@ def get_allowed_ids_for_numbers(clean_vocab: dict[int, str]):
             allowed_ids.append(token_id)
     return allowed_ids
 
-
-
 tokens_of_functions = {}
 list_of_functions = {}
 
@@ -95,7 +93,7 @@ def generate_structured_call(prompt, schema_definitions, model):
         
         if state == "FUNCTION_NAME":
             allowed_ids = get_allowed_ids_for_prefix(target_functions, current_generated_string, clean_vocab)
-        
+
 
     return tokens
 tokens = generate_structured_call("What is the sum of 222, 33.3?", functions, model)

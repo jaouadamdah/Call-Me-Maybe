@@ -79,7 +79,7 @@ msg = {
 }
 
 start = time.time()
-
+# FUNCTION_NAME | PARAM_KEY | PARAM_VALUE
 def generate_structured_call(prompt, schema_definitions, model):
     prompt = genearet_prompt(msg["system"], prompt, schema_definitions)
     tokens = model.encode(prompt)[0].tolist()
@@ -95,48 +95,8 @@ def generate_structured_call(prompt, schema_definitions, model):
         
         if state == "FUNCTION_NAME":
             allowed_ids = get_allowed_ids_for_prefix(target_functions, current_generated_string, clean_vocab)
+        
 
-        elif state == "PARAM_KEY":
-            keys = [f'"{k}": ' for k in schema_parameters.keys()]
-            allowed_ids = get_allowed_ids_for_prefix(keys, current_generated_string, clean_vocab)
-
-        elif state == "PARAM_VALUE":
-            current_type = schema_parameters[current_key]["type"]
-            if current_type == "number":
-                allowed_ids = get_allowed_ids_for_numbers(clean_vocab)
-
-        masked_logits = apply_logits_mask(logits, allowed_ids)
-        next_token = int(np.argmax(masked_logits))
-        tokens.append(next_token)
-        decoded_token = clean_vocab[next_token]
-        current_generated_string += decoded_token
-
-        if state == "FUNCTION_NAME":    
-            if current_generated_string in target_functions:
-                    tokens.extend(model.encode('", "arguments": {')[0].tolist())
-                    schema_parameters = list_of_functions[current_generated_string]["parameters"]
-                    if not schema_parameters:
-                        tokens.extend(model.encode('}')[0].tolist())
-                        state = "END"
-                    else:
-                        state = "PARAM_KEY"
-                        current_generated_string = ""
-        elif state == "PARAM_KEY":
-            if current_generated_string in [f'"{k}": ' for k in schema_parameters.keys()]:
-                current_key = current_generated_string.split('"')[1] 
-                current_generated_string = ""
-                state = "PARAM_VALUE"
-
-        elif state == "PARAM_VALUE":
-            if "," in decoded_token:
-                del schema_parameters[current_key]
-                current_generated_string = ""
-                state = "PARAM_KEY"
-                
-            elif "}" in decoded_token:
-                state = "END" 
-        elif state == "END":
-            break
     return tokens
 tokens = generate_structured_call("What is the sum of 222, 33.3?", functions, model)
 print(model.decode(tokens), end="", flush=True)  

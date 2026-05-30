@@ -61,8 +61,10 @@ tokens_of_functions = {}
 list_of_functions = {}
 
 with (
-    open("/goinfre/alamliti/Call-Me-Maybe/data/input/functions_definition.json") as fun,
-    open("/goinfre/alamliti/Call-Me-Maybe/data/input/function_calling_tests.json") as p,
+    # open("/goinfre/alamliti/Call-Me-Maybe/data/input/functions_definition.json") as fun,
+    # open("/goinfre/alamliti/Call-Me-Maybe/data/input/function_calling_tests.json") as p,
+    open("/home/ayoub-lec/Documents/Call-Me-Maybe/data/input/function_calling_tests.json") as p,
+    open("/home/ayoub-lec/Documents/Call-Me-Maybe/data/input/functions_definition.json") as fun,
 ):
     objs = json.load(fun)
     for obj in objs:

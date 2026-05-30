@@ -142,5 +142,4 @@ def generate_structured_call(prompt, schema_definitions, model):
     return tokens
 tokens = generate_structured_call("What is the sum of 222, 33.3 and 77?", functions, model)
 print(model.decode(tokens), end="", flush=True)  
-
 print("\ntotal:", (time.time() - start) / 60, " minutes")
